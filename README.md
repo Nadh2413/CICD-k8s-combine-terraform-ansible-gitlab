@@ -1,7 +1,7 @@
 # CI/CD IaS k8s on azure and frondend  using terrafrom, ansible with Gitlab
 1. DevOps system diagram
 
-  ![image](https://github.com/Nadh2413/CICD-k8s-combine-terraform-ansible-gitlab/assets/117442476/91590956-0660-4257-bdf4-17bc5e6d2ff8)
+  ![image](https://github.com/Nadh2413/CICD-k8s-combine-terraform-ansible-gitlab/assets/117442476/c7dddd46-842c-4c68-b778-7294ca5bdcf5)
 
 
    
