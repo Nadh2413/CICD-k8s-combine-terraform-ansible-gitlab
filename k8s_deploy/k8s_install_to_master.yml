@@ -1,0 +1,108 @@
+---
+- name: create file
+  hosts: master
+  become: true
+  tasks:
+    - name: check file exists
+      stat:
+        path: /install_k8s.sh
+      register: file_stat
+
+    - name: create file if not exists
+      file:
+        path: /install_k8s.sh
+        state: touch
+      when: not file_stat.stat.exists
+
+    - name: add lines to file
+      blockinfile:
+        path: /install_k8s.sh
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+        block: |
+          #!/bin/bash
+          # Set timezone
+          sudo timedatectl set-timezone Asia/Ho_Chi_Minh
+          # Update and upgrade system
+          sudo apt update -y
+          sudo apt upgrade -y
+          # Disable swap
+          sudo swapoff -a
+          # Comment out swap entries in /etc/fstab
+          sudo sed -i '/swap/ s/^/#/' /etc/fstab
+          # Load necessary kernel module
+          sudo modprobe br_netfilter
+          # Set sysctl parameters for Kubernetes networking
+          sudo sysctl -w net.bridge.bridge-nf-call-iptables=1
+          sudo sysctl -w net.bridge.bridge-nf-call-ip6tables=1
+          sudo sysctl -w net.bridge.bridge-nf-call-arptables=1
+          sudo sysctl -w net.ipv4.ip_forward=1
+          # Persist sysctl settings
+          sudo sysctl --system
+          # Install Kubernetes components
+          KUBERNETES_VERSION=1.29
+          sudo mkdir -p /etc/apt/keyrings
+          sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v$KUBERNETES_VERSION/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v$KUBERNETES_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+          sudo apt update -y
+          sudo apt install -y kubelet=1.29.0-1.1 kubectl=1.29.0-1.1 kubeadm=1.29.0-1.1
+          sudo apt-mark hold kubelet kubeadm kubectl
+          # Install CRI-O
+          sudo curl -fsSL https://pkgs.k8s.io/addons:/cri-o:/prerelease:/main/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://pkgs.k8s.io/addons:/cri-o:/prerelease:/main/deb/ /" | sudo tee /etc/apt/sources.list.d/cri-o.list
+          sudo apt update -y
+          sudo apt install -y cri-o
+          sudo systemctl daemon-reload
+          sudo systemctl enable crio --now
+          sudo systemctl start crio.service
+          # Install crictl
+          VERSION="v1.28.0"
+          sudo wget https://github.com/kubernetes-sigs/cri-tools/releases/download/$VERSION/crictl-$VERSION-linux-amd64.tar.gz -O /tmp/crictl-$VERSION-linux-amd64.tar.gz
+          sudo tar zxvf /tmp/crictl-$VERSION-linux-amd64.tar.gz -C /usr/local/bin
+          sudo rm -f /tmp/crictl-$VERSION-linux-amd64.tar.gz
+          # Create kubeadm configuration file
+          cat <<EOF | sudo tee kubeadm-config.yaml
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: InitConfiguration
+          localAPIEndpoint:
+            advertiseAddress: 0.0.0.0
+            bindPort: 6443
+          nodeRegistration:
+            criSocket: unix:///var/run/crio/crio.sock
+          ---
+          apiVersion: kubeadm.k8s.io/v1beta3
+          kind: ClusterConfiguration
+          kubernetesVersion: "v1.29.0"
+          networking:
+            podSubnet: "192.168.0.0/16"
+          EOF
+          # Initialize Kubernetes master node with custom configuration
+          sudo kubeadm init --config=kubeadm-config.yaml --ignore-preflight-errors=NumCPU,Mem
+          # Set up kubectl for the non-root user
+          mkdir -p $HOME/.kube
+          sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+          sudo chown $(id -u):$(id -g) $HOME/.kube/config
+          # Apply Calico network plugin
+          kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+          # Verify settings
+          cat /proc/sys/net/ipv4/ip_forward
+          cat /proc/sys/net/bridge/bridge-nf-call-ip6tables
+          cat /proc/sys/net/bridge/bridge-nf-call-iptables
+          cat /proc/sys/net/bridge/bridge-nf-call-arptables
+          kubectl version
+      when: not file_stat.stat.exists
+
+    - name: persmission to file
+      file:
+        path: /install_k8s.sh
+        mode: u+x
+      when: not file_stat.stat.exists
+
+    - name: execute file
+      command: sh /install_k8s.sh
+      when: not file_stat.stat.exists
+
+    - name: message check file
+      debug:
+        msg: "File already exists not execute"
+      when: file_stat.stat.exists
+

@@ -1,0 +1,13 @@
+---
+- name: SSH connect
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Scan and add server1 to known_hosts
+      shell: ssh-keyscan -H 20.6.178.83 >> ~/.ssh/known_hosts
+      ignore_errors: yes
+
+    - name: Scan and add server2 to known_hosts
+      shell: ssh-keyscan -H 20.255.42.208 >> ~/.ssh/known_hosts
+      ignore_errors: yes
+

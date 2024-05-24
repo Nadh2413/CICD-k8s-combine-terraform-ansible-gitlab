@@ -1,0 +1,94 @@
+stages:
+    - test-infa
+    - build-infa
+    - deploy-infa
+    - build-app
+    - deploy-app
+
+test:
+    stage: test-infa
+    script:
+        - whoami
+        - pwd
+        - ls -l
+        - sudo su huancd -c "cd /home/huancd/infa_k8s/kubernetes/infa/; ls -l && whoami"
+    tags:
+        - dev-server1
+1_init:
+    stage: build-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/infa_k8s/kubernetes/infa/; terraform validate; terraform init"
+    tags:
+        - dev-server1
+2_plan:
+    stage: build-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/infa_k8s/kubernetes/infa/; terraform plan"
+    tags:
+        - dev-server1
+3_apply:
+    stage: build-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/infa_k8s/kubernetes/infa/; terraform apply --auto-approve"
+    tags:
+        - dev-server1
+4_refresh:
+    stage: build-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/infa_k8s/kubernetes/infa/; terraform refresh"
+    tags:
+        - dev-server1
+
+
+1_Connect:
+    stage: deploy-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/k8s_deploy/ssh_connect.yml"
+        - sudo su huancd -c "cd /home/huancd/; ansible -i /home/huancd/ansible/hosts -m ping all"
+    tags:
+        - dev-server1
+
+2_Master:
+    stage: deploy-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/k8s_deploy/k8s_install_to_master.yml"
+    tags:
+        - dev-server1
+
+3_Woker:
+    stage: deploy-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/k8s_deploy/k8s_install_to_woker.yml"
+    tags:
+        - dev-server1
+
+4_GetToken:
+    stage: deploy-infa
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/k8s_deploy/k8s_get_join_token_master.yml"
+    tags:
+        - dev-server1
+
+build-app:
+    stage: build-app
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/app-cicd/1_build_image.yml"
+    tags:
+        - dev-server1
+
+deploy-app:
+    stage: deploy-app
+    when: manual
+    script:
+        - sudo su huancd -c "cd /home/huancd/; ansible-playbook -i /home/huancd/ansible/hosts /home/huancd/infa_k8s/kubernetes/app-cicd/2_deploy_app_k8s.yml"
+    tags:
+        - dev-server1

@@ -1,0 +1,13 @@
+---
+- name: Deploy app on k8s cluster
+  hosts: master
+  become: true
+  tasks:
+    - name: deploy app on aks
+      command: kubectl apply -f /home/huancd/1.deploy-cafe-app.yml
+
+    - name: deploy service Nodeport 30080
+      command: kubectl apply -f /home/huancd/2.service-cafe-app.yml
+
+    - name: update when changes
+      command: kubectl rollout restart deployment.apps/cafe-app-deployment

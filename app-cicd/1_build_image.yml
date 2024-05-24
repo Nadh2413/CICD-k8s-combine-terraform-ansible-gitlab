@@ -1,0 +1,24 @@
+---
+- name: Create and manage Docker image for cafe-app
+  hosts: developer
+  become: true
+  tasks:
+    - name: Clone repository
+      git:
+        repo: https://github.com/Nadh2413/cafe-app.git
+        dest: /infa_k8s/kubernetes/app-cicd/images/cafe-app
+        clone: yes
+        update: yes
+
+    # - name: Delete old Docker images
+    #   command: docker rmi -f cdhuan1003/cafe-app:latest
+    #   ignore_errors: yes
+
+    - name: Create Docker image
+      command: docker build -t cdhuan1003/cafe-app:latest .
+      args:
+        chdir: /infa_k8s/kubernetes/app-cicd/images/cafe-app
+
+    - name: Push Docker image to DockerHub
+      command: docker push cdhuan1003/cafe-app:latest
+

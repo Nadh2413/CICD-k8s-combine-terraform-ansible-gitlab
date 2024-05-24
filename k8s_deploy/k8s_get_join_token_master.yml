@@ -1,0 +1,13 @@
+---
+- name: Create kubeadm join token
+  hosts: master
+  become: true
+  tasks:
+    - name: Create kubeadm token and get join command
+      command: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: Print join command
+      debug:
+        msg: "{{ join_command.stdout }}"
+
