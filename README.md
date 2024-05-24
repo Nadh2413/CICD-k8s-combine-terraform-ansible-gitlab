@@ -18,4 +18,53 @@
 
   ![image](https://github.com/Nadh2413/CICD-k8s-combine-terraform-ansible-gitlab/assets/117442476/36a63778-10b4-46db-8a49-7a17e7177ced)
 
+
+!!! Master deploy service and app
+
+
+**** Demo K8S ***
+
+
+master:
+
+ /home/huancd/1.deploy-cafe-app.yml
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cafe-app-deployment
+  labels:
+    app: cafe-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cafe-app
+  template:
+    metadata:
+      labels:
+        app: cafe-app
+    spec:
+      containers:
+      - name: cafe-app
+        image: cdhuan1003/cafe-app
+        ports:
+        - containerPort: 80
+		
+		
+/home/huancd/2.service-cafe-app.yml		
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: cafe-app-service
+spec:
+  selector:
+    app: cafe-app
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+  type: NodePort
  
