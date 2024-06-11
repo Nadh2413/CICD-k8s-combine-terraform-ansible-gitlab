@@ -1,46 +1,177 @@
 
 **** Demo K8S ***
 
+# metallb-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - 20.45.12.4
 
-master:
 
- /home/huancd/1.deploy-cafe-app.yml
+# wordpress-loadbalancer-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-loadbalancer
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: wordpress-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
 
+# 1. configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wordpress-cm
+  namespace: default
+data:
+  WORDPRESS_DB_NAME: wordpress
+  WORDPRESS_DB_USER: root
+  WORDPRESS_DB_PASSWORD: examplepassword
+  WORDPRESS_DB_HOST: mysql-db.default.svc.cluster.local
+  WORDPRESS_DEBUG: "true"
 
+# 2. statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql-ss
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql-app
+  serviceName: mysql
+  template:
+    metadata:
+      name: mysql-pod
+      namespace: default
+      labels:
+        app: mysql-app
+    spec:
+      containers:
+        - name: mysql-container
+          image: mysql:8.0.32
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: wordpress-cm
+                  key: WORDPRESS_DB_NAME
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: wordpress-cm
+                  key: WORDPRESS_DB_PASSWORD
+          ports:
+            - name: mysql-port
+              containerPort: 3306
+          volumeMounts:
+            - name: mysql-db-vol
+              mountPath: /var/lib/mysql
+      initContainers:
+        - name: delete-existing-data
+          image: alpine:latest
+          command: ["sh", "-c", "rm -rf /mnt/lost+found*"]
+          volumeMounts:
+            - name: mysql-db-vol
+              mountPath: /mnt
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-db-vol
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "linode-block-storage"
+        resources:
+          requests:
+            storage: 2Gi
+
+# 3. persistenvolume.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+spec:
+  capacity:
+    storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: linode-block-storage
+  hostPath:
+    path: /data
+
+# 4. deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cafe-app-deployment
-  labels:
-    app: cafe-app
+  name: wordpress-deployment
+  namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: cafe-app
+      app: wordpress-app
   template:
     metadata:
+      name: wordpress-pod
+      namespace: default
       labels:
-        app: cafe-app
+        app: wordpress-app
     spec:
       containers:
-      - name: cafe-app
-        image: cdhuan1003/cafe-app
-        ports:
-        - containerPort: 80
-		
-		
-/home/huancd/2.service-cafe-app.yml		
+        - name: wordpress
+          image: wordpress:latest
+          envFrom:
+            - configMapRef:
+                name: wordpress-cm
+          ports:
+            - name: http-port
+              containerPort: 80
+
+# 5. service.yaml
 
 apiVersion: v1
 kind: Service
 metadata:
-  name: cafe-app-service
+  name: mysql-db
+  namespace: default
 spec:
+  type: ClusterIP
   selector:
-    app: cafe-app
+    app: mysql-app
   ports:
-    - port: 80
+    - protocol: TCP
+      port: 3306
+      targetPort: mysql-port
+
+# 6. wordpress-loadbalancer-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-loadbalancer
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: wordpress-app
+  ports:
+    - protocol: TCP
+      port: 80
       targetPort: 80
-      nodePort: 30080
-  type: NodePort
+
