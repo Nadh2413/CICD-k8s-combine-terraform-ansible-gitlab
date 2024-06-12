@@ -1,19 +1,22 @@
 
 **** Demo K8S ***
 
-# metallb-config.yaml
-apiVersion: v1
-kind: ConfigMap
+# IpPool.yaml
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
 metadata:
+  name: default-pool
   namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      addresses:
-      - 20.45.12.4
+spec:
+addresses:
+  - 20.16.32.45-20.16.32.47
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default-l2
+  namespace: metallb-system
+
 
 
 # wordpress-loadbalancer-service.yaml
