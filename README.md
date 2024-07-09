@@ -1,4 +1,4 @@
-# CI/CD IaS k8s on azure and frontend  using terrafrom, ansible with Gitlab
+# CI/CD IaS k8s on azure and web  using terrafrom, ansible with Gitlab
 
 1. System diagram
 
